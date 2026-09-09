@@ -4,9 +4,69 @@
 #include <string.h>
 #include "sh_image.h"
 #include "sh_utils.h"
-#include <unistd.h>
 #include <signal.h>
+
+#ifdef WINDOWS
+#include <windows.h>
+/* Minimal getopt implementation for Windows */
+static char *win_optarg = NULL;
+static int win_optind = 1;
+static int win_opterr = 1;
+static int win_optopt = '?';
+#define optarg win_optarg
+#define optind win_optind
+#define opterr win_opterr
+#define optopt win_optopt
+
+static int getopt(int argc, char *const argv[], const char *optstring) {
+    static int optpos = 0;
+
+    for (;;) {
+        if (optpos == 0) {
+            if (win_optind >= argc) return -1;
+            if (argv[win_optind][0] != '-' || argv[win_optind][1] == '\0') return -1;
+            optpos = 1;
+        }
+
+        if (argv[win_optind][optpos] == '\0') {
+            win_optind++;
+            optpos = 0;
+            continue;
+        }
+
+        int c = (unsigned char)argv[win_optind][optpos++];
+        win_optopt = c;
+
+        char *opt = strchr(optstring, c);
+        if (!opt) return '?';
+
+        if (opt[1] == ':') {
+            if (argv[win_optind][optpos] != '\0') {
+                win_optarg = &argv[win_optind][optpos];
+            } else {
+                win_optind++;
+                if (win_optind >= argc) return '?';
+                win_optarg = argv[win_optind];
+            }
+            win_optind++;
+            optpos = 0;
+        } else {
+            win_optarg = NULL;
+        }
+
+        return c;
+    }
+}
+#define usleep(x) Sleep((x) / 1000)
+#else
+#include <unistd.h>
 #include <sys/ioctl.h>
+extern char *optarg;
+extern int optind;
+extern int optopt;
+extern int opterr;
+extern int optreset;
+#endif
 
 #define USAGE "Usage: catimg [-hct] [-w width | -H height] [-l loops] [-r resolution] image-file\n\n" \
   "  -h: Displays this message\n"                                      \
@@ -24,12 +84,6 @@
 
 // Transparency threshold -- all pixels with alpha below 25%.
 #define TRANSP_ALPHA 64
-
-extern char *optarg;
-extern int optind;
-extern int optopt;
-extern int opterr;
-extern int optreset;
 
 // For <C-C>
 volatile int loops = -1, loop = -1;

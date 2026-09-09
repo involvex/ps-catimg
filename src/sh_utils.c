@@ -5,11 +5,13 @@
 #include <windows.h>
 #include <io.h>
 #include <fcntl.h>
+#include <sys/types.h>
 #define fileno _fileno
 #define read _read
 #else
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <sys/types.h>
 #endif
 
 #include <stdlib.h>
